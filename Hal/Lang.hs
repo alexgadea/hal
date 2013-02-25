@@ -1,27 +1,27 @@
+-- | Módulo de la sintáxis lenguaje imperativo simple con anotaciones (LISA).
 {-# Language GADTs #-}
 module Hal.Lang where
 
 import qualified Data.Text as T
 
-infixr 9 :->
+import Equ.Expr
 
-type FormFun = String
+type FormFun = Expr
 
 type LIdentifier = [Identifier]
 
-data AtomTy = IntTy | BoolTy
-    deriving Eq
-
 -- Tipo de dato básico para las expresiones.
-data Type = ATy AtomTy | (:->) Type Type
+data Type = IntTy | BoolTy
     deriving Eq
 
+-- Lo usamos para determinar si un identificador es una variables o una
+-- constante.
 data IdType = IsVar | IsCon
     deriving Eq
-    
+
 -- Identificador de variable y constante.
 data Identifier = Identifier { idName     :: T.Text
-                             , idDataType :: AtomTy
+                             , idDataType :: Type
                              , idType     :: IdType
                              }
                              
@@ -31,49 +31,65 @@ instance Show Identifier where
 instance Eq Identifier where
     i == i' = idName i == idName i'
 
-data BoolOp = And | Or | Not
+-- Operadores binarios boleanos.
+data BoolBOp = And | Or 
 
-data IntOp = Plus | Times | Substr | Div
+-- Operadores unarios boleanos.
+data BoolUOp = Not
 
-data RelOp = Equal | Lt | Gt
+-- Operadores binarios enteros.
+data IntBOp = Plus | Times | Substr | Div
+
+-- Operadores unarios enteros
+data IntUOp = Neg
+
+-- Relaciones binarias.
+data RelOp = Equal | Lt | Gt | NEqual
+
+-- Expresiones enteras.
+data Exp where
+    IntId  :: Identifier -> Exp
+    ICon   :: Int -> Exp
     
-data OpName = BOp BoolOp | IOp IntOp | ROp RelOp
+    IBOp :: IntBOp -> Exp -> Exp -> Exp
+    IUOp :: IntUOp -> Exp -> Exp
 
--- Tipo de dato generico de un operador.
-data Operator = Operator { opName :: OpName
-                         , opRepr :: T.Text
-                         , opType :: Type
-                         }
+-- Relaciones.
+data Relation where
+    Rel :: RelOp -> Exp -> Exp -> Relation
 
--- Expresiones del lenguaje. Encapsulamos las expresiones aritmeticas 
--- ademas del identificador usado como valor.
-data Expr where
-    IdExpr :: Identifier -> Expr
+-- Expresiones boleanas.
+data BExp where
+    BoolId :: Identifier -> BExp
+    BCon   :: Bool -> BExp
     
-    Op :: Operator -> [Expr] -> Expr
+    BBOp :: BoolBOp -> BExp -> BExp -> BExp
+    BUOp :: BoolUOp -> BExp -> BExp
     
-    ICon :: Int -> Expr
-    BCon :: Bool -> Expr
+    BRel :: Relation -> BExp
 
--- De momento es para la representación del identificador como variable.
+-- Aceptor entero.
 data Acc where
-    IdAcc :: Identifier -> Acc
+    IntIdAcc :: Identifier -> Acc
+
+-- Aceptor boleano.
+data BAcc where
+    BoolIdAcc :: Identifier -> BAcc
 
 -- Los terminos que representan los comandos.
 data Comm where
     Skip  :: Comm
     Abort :: Comm
     
-    -- De momento tenemos dos versiones de asserts como comando.
-    -- Una usando las expresiones propias del lenguaje y otra usando
-    -- fórmulas de fun.
-    Assert  :: Expr -> Comm
-    Assert' :: FormFun -> Comm
+    Assert :: FormFun -> Comm
     
-    If    :: Expr -> Comm -> Comm -> Comm
-    Assig :: Acc  -> Expr -> Comm
-    Do    :: Expr -> Expr -> Comm -> Comm
-    Seq   :: Comm -> Comm -> Comm
+    If     :: BExp -> Comm -> Comm -> Comm
+    
+    IAssig :: Acc  -> Exp -> Comm
+    BAssig :: BAcc -> BExp -> Comm
+    
+    Do     :: Expr -> Expr -> Comm -> Comm
+    Seq    :: Comm -> Comm -> Comm
 
 -- Un programa se separa en dos partes principales, la declaración de las
 -- variables y los comandos en sí que conforman el programa.
