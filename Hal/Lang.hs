@@ -94,4 +94,4 @@ data Comm where
 -- Un programa se separa en dos partes principales, la declaración de las
 -- variables y los comandos en sí que conforman el programa.
 data Program where
-    Prog :: LIdentifier -> Comm -> Program
+    Prog :: LIdentifier -> FormFun -> Comm -> FormFun -> Program
