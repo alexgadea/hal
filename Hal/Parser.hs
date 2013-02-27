@@ -21,7 +21,8 @@ import qualified Equ.Expr as Equ
 --Imports de Hal
 import Hal.Lang
 
-
+-- | Estado del parser. Todavía no queda claro si pueden ocurrir variables libres
+--   en un programa.
 data PHalState = PHalState {
                         pvars :: M.Map String Identifier
                       , lvars :: M.Map String Identifier
@@ -415,6 +416,7 @@ prg4 = [ " vardef x: Int;",
          " while not (not y) { y == True } ",
          " do ",
          " x := x - 1;",
+         " { x < X }; ",
          " y := x > 0; ",
          " abort",
          " od",
