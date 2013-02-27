@@ -12,12 +12,12 @@ type LIdentifier = [Identifier]
 
 -- Tipo de dato básico para las expresiones.
 data Type = IntTy | BoolTy
-    deriving Eq
+    deriving (Eq,Show)
 
 -- Lo usamos para determinar si un identificador es una variables o una
 -- constante.
 data IdType = IsVar | IsCon
-    deriving Eq
+    deriving (Eq,Show)
 
 -- Identificador de variable y constante.
 data Identifier = Identifier { idName     :: T.Text
@@ -33,18 +33,22 @@ instance Eq Identifier where
 
 -- Operadores binarios boleanos.
 data BoolBOp = And | Or 
+    deriving Show
 
 -- Operadores unarios boleanos.
 data BoolUOp = Not
+    deriving Show
 
 -- Operadores binarios enteros.
-data IntBOp = Plus | Times | Substr | Div
-
+data IntBOp = Plus | Times | Substr | Div | Mod
+    deriving Show
+    
 -- Operadores unarios enteros
-data IntUOp = Neg
+-- NO HAY
 
 -- Relaciones binarias.
 data RelOp = Equal | Lt | Gt | NEqual
+   deriving Show
 
 -- Expresiones enteras.
 data Exp where
@@ -52,11 +56,14 @@ data Exp where
     ICon   :: Int -> Exp
     
     IBOp :: IntBOp -> Exp -> Exp -> Exp
-    IUOp :: IntUOp -> Exp -> Exp
+    
+    deriving Show
 
 -- Relaciones.
 data Relation where
     Rel :: RelOp -> Exp -> Exp -> Relation
+    
+    deriving Show
 
 -- Expresiones boleanas.
 data BExp where
@@ -67,6 +74,8 @@ data BExp where
     BUOp :: BoolUOp -> BExp -> BExp
     
     BRel :: Relation -> BExp
+   
+   deriving Show
 
 -- Aceptor entero.
 data Acc where
@@ -75,6 +84,12 @@ data Acc where
 -- Aceptor boleano.
 data BAcc where
     BoolIdAcc :: Identifier -> BAcc
+    
+instance Show Acc where
+    show (IntIdAcc i) = show i
+
+instance Show BAcc where
+    show (BoolIdAcc i) = show i
 
 -- Los terminos que representan los comandos.
 data Comm where
@@ -88,10 +103,13 @@ data Comm where
     IAssig :: Acc  -> Exp -> Comm
     BAssig :: BAcc -> BExp -> Comm
     
-    Do     :: Expr -> Expr -> Comm -> Comm
+    Do     :: FormFun -> BExp -> Comm -> Comm
     Seq    :: Comm -> Comm -> Comm
+    
+    deriving Show
 
 -- Un programa se separa en dos partes principales, la declaración de las
 -- variables y los comandos en sí que conforman el programa.
 data Program where
     Prog :: LIdentifier -> FormFun -> Comm -> FormFun -> Program
+    deriving Show
