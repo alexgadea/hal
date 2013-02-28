@@ -39,10 +39,6 @@ instance PEqu.PExprStateClass PHalState where
                               
     setExprState phs st = phs { equPState = st }
 
-
-
-
-
 -- |Operadores enteros
 intOperators :: [String]
 intOperators = ["+","-","*","/", "%"]
@@ -55,6 +51,7 @@ boolOperators = ["&&","||","not"]
 relOperators :: [String]
 relOperators = ["=","<"]
 
+operators :: [String]
 operators = intOperators++boolOperators++relOperators
 
 -- |Palabras reservadas del lenguaje.
@@ -64,8 +61,6 @@ reservedCmd = [ "abort","skip","if","then",
                 "else","fi","while","do","od",
                 "vardef","Pre","Post","Bool", "Int"
               ]
-
-
 keywords = reservedCmd ++ boolConsts
 
 -- |Aquí configuramos las opciones de análisis sintáctico para el
@@ -113,7 +108,6 @@ oper s = sym s >> return ()
 -- dentro de llaves ('{' y '}').
 brac :: ParserH a -> ParserH a
 brac = braces lang
-                 
 
 -- |Construye el parser de un operador binario infijo.
 binop :: String -> (a -> a -> a) -> Assoc -> Operator String PHalState Identity a
@@ -128,7 +122,7 @@ prefix s f = Prefix (oper s >> return f <?> "operator")
 -- |Parser de expresiones enteras con símbolos de relación.
 rop :: String -> RelOp -> ParserH BExp
 rop s op = try $ intexp >>= \e -> oper s >> intexp >>= \e' -> 
-                 return (BRel $ Rel op e e')
+                 return (BRel op e e')
 
 -- |Consume carácteres de espacio en blanco.
 whites :: ParserH ()
@@ -150,15 +144,19 @@ pvar ty = try $ ident >>= \s ->
                 if ty==idDataType i
                     then return i
                     else parserFail $ "Variable " ++ s ++ " no tiene tipo" ++ show ty
- 
+
+pintvar :: ParserH Identifier
 pintvar = pvar IntTy
 
+pboolvar :: ParserH Identifier
 pboolvar = pvar BoolTy
 
+intvarExp :: ParserH Exp
 intvarExp = pintvar >>= return . IntId
 
+boolvarExp :: ParserH BExp
 boolvarExp = pboolvar >>= return . BoolId
-                    
+
 -- |Constantes enteras (esto considera los positivos y los negativos).
 intcon :: ParserH Exp
 intcon = int >>= return . ICon
@@ -174,12 +172,9 @@ intops = [[ binop "*" (IBOp Times) AssocLeft, binop "/" (IBOp Div) AssocLeft
          ,[ binop "+" (IBOp Plus) AssocLeft, binop "-" (IBOp Substr) AssocLeft]
          ]
 
-
 -- |Expresiones enteras
 intexp :: ParserH Exp
 intexp = buildExpressionParser intops intatom <?> "Expresión entera"
-
-
 
 -- *** Expresiones booleanas.
 -- |Operadores de relación.
@@ -189,7 +184,6 @@ relexps = [ rop "=" Equal
           , rop ">" Gt
           , rop "/=" NEqual
           ]
-
 
 -- |Operadores booleanos.
 boolops :: OperatorTable String PHalState Identity BExp
@@ -209,9 +203,6 @@ boolatom = paren boolexp <|> choice relexps <|> boolcon <|> boolvarExp
 boolexp :: ParserH BExp
 boolexp = buildExpressionParser boolops boolatom <?> "Expresión booleana"
 
-         
-
-
 -- *** Comandos.
 -- |Comando simples.
 single :: String -> Comm -> ParserH Comm
@@ -225,23 +216,19 @@ skip = single "skip" Skip
 abort :: ParserH Comm
 abort = single "abort" Abort
 
-
 -- |Asignación.
 assignInt :: ParserH Comm
 assignInt = try $ 
-            pintvar >>= 
-            return . IntIdAcc >>= \acc ->
+            pintvar >>= \acc ->
             oper ":=" >> 
             intexp >>= return . IAssig acc
 
 assignBool :: ParserH Comm
 assignBool = try $ 
-             pboolvar >>= 
-             return . BoolIdAcc >>= \acc ->
+             pboolvar >>= \acc ->
              oper ":=" >> 
              boolexp >>= return . BAssig acc  
-         
-         
+
 -- |Condicional.      
 ifthen :: ParserH Comm
 ifthen = try $
@@ -259,13 +246,13 @@ formfun = try $
           whites >>
           sym "}" >>
           return e
-         
+
 -- | Assert
 assert :: ParserH Comm
 assert = try $
          formfun >>=
          return . Assert
-         
+
 -- | Do - While
 while :: ParserH Comm
 while = try $
@@ -276,8 +263,7 @@ while = try $
         formfun >>= \form ->
         keyword "do" >> comm >>=
         \c -> keyword "od" >> return (Do form b c)
-         
-         
+
 -- | Secuencia
 seqc :: ParserH Comm
 seqc = try $
@@ -288,7 +274,6 @@ seqc = try $
       whites >>
       comm >>= \c' ->
       return (Seq c c')
-      
 
 -- | Comandos del lenguaje LISA
 comms :: [ParserH Comm]
@@ -300,7 +285,8 @@ comms = [ skip
        , ifthen
        , while
        ]
-       
+
+comm :: ParserH Comm
 comm = try $ whites >> sepEndBy1 (choice comms) semip >>= return . foldl1 Seq
        
 -- | Precondición
@@ -330,7 +316,6 @@ post = try $
        return e
        
 -- | Declaraciones de variables
-
 vardef :: ParserH ()
 vardef = try $
          whites >>
@@ -345,11 +330,9 @@ vardef = try $
          >>= \ids ->
          updState s ids >>
          return ()
-         
     where updState s ids = updateParserState (\st -> st { stateUser = 
                                     (stateUser st) { pvars = M.insert s ids (pvars $ stateUser st)} } )
 
-                                    
 seqvardef :: ParserH ()
 seqvardef = try $
             vardefs >>
@@ -387,7 +370,20 @@ parseFromString = runParser program initSt ""
                              , pvars = M.empty
                              , equPState = PEqu.initPExprState PEqu.UnusedParen
                              }
-      
+
+parseConFromString :: String -> Either ParseError Exp
+parseConFromString = runParser intcon initSt "" 
+    where initSt = PHalState { lvars = M.empty
+                             , pvars = M.empty
+                             , equPState = PEqu.initPExprState PEqu.UnusedParen
+                             }
+
+parseBConFromString :: String -> Either ParseError BExp
+parseBConFromString = runParser boolcon initSt "" 
+    where initSt = PHalState { lvars = M.empty
+                             , pvars = M.empty
+                             , equPState = PEqu.initPExprState PEqu.UnusedParen
+                             }
 -- *** EXAMPLES
 
 prg1 = ["{Pre: True}",
@@ -412,7 +408,7 @@ prg3 = [" vardef x: Int;",
          
 prg4 = [ " vardef x: Int;",
          " vardef y: Bool",
-         "{Pre: x = X ∧ y == True}",
+         "{Pre: x == X ∧ y == True}",
          " while not (not y) { y == True } ",
          " do ",
          " x := x - 1;",
@@ -423,7 +419,6 @@ prg4 = [ " vardef x: Int;",
          "{Post: False}"
          ]
         
-
 prg5 = [ " vardef x: Int;",
          "{Pre: ¬ (x < 0)}",
          " if (x > 0) ",
@@ -433,5 +428,13 @@ prg5 = [ " vardef x: Int;",
          "{Post: True}"
        ]
 
-
-      
+prg6 = [ " vardef x: Int;",
+         " vardef y: Bool",
+         "{Pre: True}",
+         " while not (not y) { y == True } ",
+         " do ",
+         " x := x - 1;",
+         " y := x > 0; ",
+         " od",
+         "{Post: True}"
+         ]

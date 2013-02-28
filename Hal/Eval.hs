@@ -1,14 +1,24 @@
+{- | Evaluador del lenguaje Hal
+    
+    Para evaluar asumimos el programa typechekeo sin problemas.
+-}
 {-# LANGUAGE RecordWildCards #-}
 module Hal.Eval where
 
+import Control.Applicative
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.State.Lazy (StateT,get,put,execStateT)
 import Control.Monad.Fix (fix)
+import System.IO
 
 import qualified Data.List as L
 import Data.Maybe
 
+-- Imports de Hal
 import Hal.Lang
+import Hal.Parser
 
--- Elemento de un estado. Representa el valor de una variable en un momento
+-- | Elemento de un estado. Representa el valor de una variable en un momento
 -- de la evaluación.
 data StateTuple = IntVar  Identifier (Maybe Int)
                 | BoolVar Identifier (Maybe Bool)
@@ -19,78 +29,125 @@ instance Eq StateTuple where
     (BoolVar i _) == (BoolVar i' _) = i == i'
     _ == _ = False
 
--- Estado de la evaluación.
+-- | Estado de la evaluación.
 type State = [StateTuple]
 
--- Valor Semántico de una expresión del lenguaje.
-data SemExpr = IntVal Int
-             | BoolVal Bool
-    deriving Show
+-- | Mónada de la semántica denotacional.
+type ProgState = StateT State IO
 
--- Para evaluar asumimos el programa typechekeo sin problemas.
+-- | Evaluador de los operadores binarios enteros.
+evalIntBOp :: IntBOp -> ProgState Int -> ProgState Int -> ProgState Int
+evalIntBOp Plus   = liftA2 (+)
+evalIntBOp Times  = liftA2 (*)
+evalIntBOp Substr = liftA2 (-)
+evalIntBOp Div    = liftA2 div
+evalIntBOp Mod    = liftA2 mod
 
-evalOp :: OpName -> [SemExpr]-> SemExpr
-evalOp (BOp Not)   [(BoolVal b)]              = BoolVal $ not b
-evalOp (IOp Plus)  [(IntVal i),(IntVal i')]   = IntVal  $ i + i'
-evalOp (ROp Equal) [(IntVal i),(IntVal i')]   = BoolVal $ i == i'
-evalOp (ROp Equal) [(BoolVal i),(BoolVal i')] = BoolVal $ i == i'
+-- | Evaluador de los operadores binarios boleanos.
+evalBoolBOp :: BoolBOp -> ProgState Bool -> ProgState Bool -> ProgState Bool
+evalBoolBOp And = liftA2 (&&)
+evalBoolBOp Or  = liftA2 (||)
 
-evalAcc :: Acc -> State -> Identifier
-evalAcc (IdAcc i) st = i
-        
-evalExpr :: Expr -> State -> SemExpr
-evalExpr (ICon i) _ = IntVal i
-evalExpr (BCon b) _ = BoolVal b
-evalExpr (Op op exprs) st = evalOp (opName op) $ L.map (flip evalExpr st) exprs
-evalExpr (IdExpr i) st = getIdValue
+-- | Evaluador de los operadores unarios boleanos.
+evalBoolUOp :: BoolUOp -> ProgState Bool -> ProgState Bool
+evalBoolUOp Not = fmap not
+
+-- | Evaluador de las relaciones binarias.
+evalRelOp :: (Eq a, Ord a) => 
+             RelOp -> ProgState a -> ProgState a -> ProgState Bool
+evalRelOp Equal  = liftA2 (==)
+evalRelOp Lt     = liftA2 (<)
+evalRelOp Gt     = liftA2 (>)
+evalRelOp NEqual = liftA2 (/=)
+
+-- | Evaluador de expresiones enteras.
+evalExp :: Exp -> ProgState Int
+evalExp (IBOp iop e e') = evalIntBOp iop (evalExp e) (evalExp e')
+evalExp (ICon i)  = return i
+evalExp (IntId i) = get >>= \st -> 
+                    maybe (error "Impossible")
+                          stGetIntValue $ L.find (==(IntVar i Nothing)) st
     where
-        getIdValue :: SemExpr
-        getIdValue = case idDataType i of
-                        IntTy -> IntVal $ stGetIntValue $ fromJust $ 
-                                 L.find (==(IntVar i Nothing)) st
-                        BoolTy -> BoolVal $ stGetBoolValue $ fromJust $ 
-                                  L.find (==(BoolVar i Nothing)) st
-        
-        stGetBoolValue :: StateTuple -> Bool
-        stGetBoolValue (BoolVar _ v) = fromJust v
-    
-        stGetIntValue :: StateTuple -> Int
-        stGetIntValue (IntVar _ v) = fromJust v
+        getNewValue :: ProgState Int
+        getNewValue = liftIO (putStr ("Ingrese la variable "++show (idName i) ++": ")) >>
+                      liftIO (hFlush stdout) >> liftIO getLine >>= \str -> 
+                      case parseConFromString str of
+                          Left er -> liftIO (putStrLn "Valor no valido, intente de nuevo.") >> getNewValue
+                          Right v -> do st <- get
+                                        v' <- evalExp v
+                                        let st' = L.map (updateValue i (Right v')) st
+                                        put st'
+                                        return v'
+        stGetIntValue :: StateTuple -> ProgState Int
+        stGetIntValue (IntVar _ mv) = maybe getNewValue return mv
 
-updateValue :: Identifier -> SemExpr -> StateTuple -> StateTuple
-updateValue i (BoolVal v) stt@(BoolVar i' _) = if i == i' 
+-- | Evaluador de expresiones boleanas.
+evalBExp :: BExp -> ProgState Bool
+evalBExp (BRel rop e e') = evalRelOp rop (evalExp e) (evalExp e')
+evalBExp (BUOp bop e)    = evalBoolUOp bop $ evalBExp e
+evalBExp (BBOp bop e e') = evalBoolBOp bop (evalBExp e) (evalBExp e')
+evalBExp (BCon b) = return b
+evalBExp (BoolId i) = get >>= \st -> 
+                      maybe (error "Impossible")
+                            stGetBoolValue $ L.find (==(BoolVar i Nothing)) st
+    where
+        getNewValue :: ProgState Bool
+        getNewValue = liftIO (putStr ("Ingrese la variable "++show (idName i) ++": ")) >>
+                      liftIO (hFlush stdout) >> liftIO getLine >>= \str -> 
+                      case parseBConFromString str of
+                          Left er -> liftIO (putStrLn "Valor no valido, intente de nuevo.") >> getNewValue
+                          Right v -> do st <- get
+                                        v' <- evalBExp v
+                                        let st' = L.map (updateValue i (Left v')) st
+                                        put st'
+                                        return v'
+        stGetBoolValue :: StateTuple -> ProgState Bool
+        stGetBoolValue (BoolVar _ mv) = maybe getNewValue return mv
+
+-- | Actualiza el valor de un identificador en una tupla del estado.
+updateValue :: Identifier -> Either Bool Int -> StateTuple -> StateTuple
+updateValue i (Left v) stt@(BoolVar i' _) = if i == i' 
                                                 then (BoolVar i $ Just v)
                                                 else stt
-updateValue i (IntVal v) stt@(IntVar i' _) = if i == i' 
+updateValue i (Right v) stt@(IntVar i' _) = if i == i' 
                                                 then (IntVar i $ Just v)
                                                 else stt
-addValue :: Identifier -> SemExpr -> State -> State
-addValue i (BoolVal v) st = st++[BoolVar i $ Just v]
-addValue i (IntVal v) st = st++[IntVar i $ Just v]
+updateValue _ _ stt = stt
 
-evalComm :: Comm -> State -> State
-evalComm Skip st = st
-evalComm Abort st = error "¿Este no es el comportamiento que debería tener? :D"
-evalComm (Assert b) st = let BoolVal vb = evalExpr b st
-                         in if vb then st else error "Assert falso"
-evalComm (If b c c') st = let BoolVal vb = evalExpr b st
-                          in if vb then evalComm c st else evalComm c' st
-evalComm (Assig a e) st = let evalE = evalExpr e st 
-                              evalA = evalAcc a st
-                          in
-                          L.map (updateValue evalA evalE) st
-evalComm (Seq c c') st = evalComm c' $ evalComm c st
-evalComm (Do inv b c) st = let BoolVal vinv = evalExpr inv st
-                           in if vinv
-                                then fix evalDo st
-                                else error "Invariante falso"
+-- | Agrega un identificador con su valor al estado.
+addValue :: Identifier -> Either Bool Int -> State -> State
+addValue i (Left v) st  = st++[BoolVar i $ Just v]
+addValue i (Right v) st = st++[IntVar i $ Just v]
+
+-- | Evaluador de los comandos.
+evalComm :: Comm -> ProgState ()
+evalComm Skip = return ()
+evalComm Abort = error "¿Este no es el comportamiento que debería tener? :D"
+evalComm (Assert b) = return ()
+evalComm (If b c c') = evalBExp b >>= \vb ->
+                       if vb then evalComm c else evalComm c'
+evalComm (IAssig a e) = do 
+                        evalE <- evalExp e
+                        st <- get 
+                        let st' = L.map (updateValue a $ Right evalE) st
+                        put st'
+evalComm (BAssig a e) = do 
+                        evalE <- evalBExp e
+                        st <- get 
+                        let st' = L.map (updateValue a $ Left evalE) st
+                        put st'
+evalComm (Seq c c') = evalComm c >> evalComm c'
+evalComm (Do inv b c) = fix evalDo
     where
-        evalDo :: (State -> State) -> (State -> State)
-        evalDo f st = let BoolVal vb = evalExpr b st
-                      in if vb then f (evalComm (Seq c (Assert inv)) st) else st
+        evalDo :: ProgState () -> ProgState ()
+        evalDo f = do
+                   vb <- evalBExp b
+                   if vb then (evalComm (Seq c (Assert inv))) >> f 
+                         else return ()
 
-evalProgram :: Program -> State
-evalProgram (Prog vars comms) = evalComm comms fillState
+-- | Evaluador de los programas.
+evalProgram :: Program -> IO State
+evalProgram (Prog vars pre comms post) = execStateT (evalComm comms) fillState
     where
         fillState :: State
         fillState = map makeVar vars

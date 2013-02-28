@@ -59,12 +59,6 @@ data Exp where
     
     deriving Show
 
--- Relaciones.
-data Relation where
-    Rel :: RelOp -> Exp -> Exp -> Relation
-    
-    deriving Show
-
 -- Expresiones boleanas.
 data BExp where
     BoolId :: Identifier -> BExp
@@ -73,23 +67,9 @@ data BExp where
     BBOp :: BoolBOp -> BExp -> BExp -> BExp
     BUOp :: BoolUOp -> BExp -> BExp
     
-    BRel :: Relation -> BExp
+    BRel :: RelOp -> Exp -> Exp -> BExp
    
    deriving Show
-
--- Aceptor entero.
-data Acc where
-    IntIdAcc :: Identifier -> Acc
-
--- Aceptor boleano.
-data BAcc where
-    BoolIdAcc :: Identifier -> BAcc
-    
-instance Show Acc where
-    show (IntIdAcc i) = show i
-
-instance Show BAcc where
-    show (BoolIdAcc i) = show i
 
 -- Los terminos que representan los comandos.
 data Comm where
@@ -100,8 +80,8 @@ data Comm where
     
     If     :: BExp -> Comm -> Comm -> Comm
     
-    IAssig :: Acc  -> Exp -> Comm
-    BAssig :: BAcc -> BExp -> Comm
+    IAssig :: Identifier -> Exp -> Comm
+    BAssig :: Identifier -> BExp -> Comm
     
     Do     :: FormFun -> BExp -> Comm -> Comm
     Seq    :: Comm -> Comm -> Comm
