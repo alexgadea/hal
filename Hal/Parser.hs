@@ -20,6 +20,7 @@ import qualified Equ.Expr as Equ
 
 --Imports de Hal
 import Hal.Lang
+import Hal.Symbols
 
 -- | Estado del parser. Todavía no queda claro si pueden ocurrir variables libres
 --   en un programa.
@@ -41,15 +42,15 @@ instance PEqu.PExprStateClass PHalState where
 
 -- |Operadores enteros
 intOperators :: [String]
-intOperators = ["+","-","*","/", "%"]
+intOperators = [plusSym,substrSym,timesSym,divSym,modSym]
 
 -- | Operadores booleanos
 boolOperators :: [String]
-boolOperators = ["&&","||","not"]
+boolOperators = [andSym,orSym,notSym]
 
 -- | Operadores de relación
 relOperators :: [String]
-relOperators = ["=","<"]
+relOperators = [eqSym,ltSym]
 
 operators :: [String]
 operators = intOperators++boolOperators++relOperators
@@ -167,9 +168,9 @@ intatom = paren intexp <|> intvarExp <|> intcon
 
 -- |Operadores enteros.
 intops :: OperatorTable String PHalState Identity Exp
-intops = [[ binop "*" (IBOp Times) AssocLeft, binop "/" (IBOp Div) AssocLeft 
-          , binop "%" (IBOp Mod) AssocLeft]
-         ,[ binop "+" (IBOp Plus) AssocLeft, binop "-" (IBOp Substr) AssocLeft]
+intops = [[ binop timesSym (IBOp Times) AssocLeft, binop divSym (IBOp Div) AssocLeft 
+          , binop modSym (IBOp Mod) AssocLeft]
+         ,[ binop plusSym (IBOp Plus) AssocLeft, binop substrSym (IBOp Substr) AssocLeft]
          ]
 
 -- |Expresiones enteras
@@ -179,16 +180,14 @@ intexp = buildExpressionParser intops intatom <?> "Expresión entera"
 -- *** Expresiones booleanas.
 -- |Operadores de relación.
 relexps :: [ParserH BExp]
-relexps = [ rop "=" Equal
-          , rop "<" Lt
-          , rop ">" Gt
-          , rop "/=" NEqual
+relexps = [ rop eqSym Equal
+          , rop ltSym Lt
           ]
 
 -- |Operadores booleanos.
 boolops :: OperatorTable String PHalState Identity BExp
-boolops = [[ prefix "not" (BUOp Not)]
-          ,[ binop "&&" (BBOp And) AssocLeft, binop "||" (BBOp Or) AssocLeft]
+boolops = [[ prefix notSym (BUOp Not)]
+          ,[ binop andSym (BBOp And) AssocLeft, binop orSym (BBOp Or) AssocLeft]
           ]
 
 -- |Constantes booleanas.
@@ -413,7 +412,7 @@ prg4 = [ " vardef x: Int;",
          " do ",
          " x := x - 1;",
          " { x < X }; ",
-         " y := x > 0; ",
+         " y := x < 0; ",
          " abort",
          " od",
          "{Post: False}"

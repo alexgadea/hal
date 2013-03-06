@@ -10,13 +10,19 @@ import qualified Equ.Types as ETy
 import qualified Equ.Theories.FOL as ETheoriesF
 import qualified Equ.Theories.Arith as ETheoriesA
 
+import Hal.Symbols
+
 type FormFun = Expr
 
 type LIdentifier = [Identifier]
 
 -- Tipo de dato básico para las expresiones.
 data Type = IntTy | BoolTy
-    deriving (Eq,Show)
+    deriving Eq
+
+instance Show Type where
+    show IntTy = "Int"
+    show BoolTy = "Bool"
 
 -- Lo usamos para determinar si un identificador es una variables o una
 -- constante.
@@ -37,22 +43,36 @@ instance Eq Identifier where
 
 -- Operadores binarios boleanos.
 data BoolBOp = And | Or 
-    deriving Show
+
+instance Show BoolBOp where
+    show And = andSym
+    show Or = orSym
 
 -- Operadores unarios boleanos.
 data BoolUOp = Not
-    deriving Show
+
+instance Show BoolUOp where
+    show Not = notSym
 
 -- Operadores binarios enteros.
 data IntBOp = Plus | Times | Substr | Div | Mod
-    deriving Show
+
+instance Show IntBOp where
+    show Plus = plusSym
+    show Times = timesSym
+    show Substr = substrSym
+    show Div = divSym
+    show Mod = modSym
     
 -- Operadores unarios enteros
 -- NO HAY
 
 -- Relaciones binarias.
-data RelOp = Equal | Lt | Gt | NEqual
-   deriving Show
+data RelOp = Equal | Lt
+
+instance Show RelOp where
+    show Equal = eqSym
+    show Lt = ltSym
 
 -- Expresiones enteras.
 data Exp where
@@ -61,7 +81,10 @@ data Exp where
     
     IBOp :: IntBOp -> Exp -> Exp -> Exp
     
-    deriving Show
+instance Show Exp where
+    show (IntId i) = show i
+    show (ICon i) = show i
+    show (IBOp op e1 e2) = (show e1) ++ " " ++ (show op) ++ " " ++ (show e2)
 
 -- Expresiones boleanas.
 data BExp where
@@ -73,7 +96,12 @@ data BExp where
     
     BRel :: RelOp -> Exp -> Exp -> BExp
    
-   deriving Show
+instance Show BExp where
+    show (BoolId i) = show i
+    show (BCon b) = show b
+    show (BBOp op e1 e2) = (show e1) ++ " " ++ (show op) ++ " " ++ (show e2)
+    show (BUOp op e) = (show op) ++ " " ++ (show e)
+    show (BRel rel e1 e2) = (show e1) ++ " " ++ (show rel) ++ " " ++ (show e2)
 
 -- Los terminos que representan los comandos.
 data Comm where
@@ -90,13 +118,33 @@ data Comm where
     Do     :: FormFun -> BExp -> Comm -> Comm
     Seq    :: Comm -> Comm -> Comm
     
-    deriving Show
+instance Show Comm where
+    show Skip = "skip"
+    show Abort = "abort"
+    show (Assert f) = "{" ++ (show f) ++ "}"
+    show (If b c1 c2) = "if (" ++ (show b) ++ ")\n\tthen "++ (show c1) ++
+                        "\n\telse " ++ (show c2)
+    show (IAssig i e) = (show i) ++ ":= " ++ (show e)
+    show (BAssig i e) = (show i) ++ ":= " ++ (show e)
+    show (Do inv b c) = "while ("++ (show b) ++ ") {"++ (show inv) ++ "} " ++
+                        "\n\tdo " ++ (show c) ++ "\n\tod"
+    show (Seq c1 c2) = (show c1) ++ "; " ++ (show c2)
 
 -- Un programa se separa en dos partes principales, la declaración de las
 -- variables y los comandos en sí que conforman el programa.
 data Program where
     Prog :: LIdentifier -> FormFun -> Comm -> FormFun -> Program
-    deriving Show
+
+instance Show Program where
+    show (Prog is pre c pos) =
+        showvars ++ "\n{ " ++ (show pre) ++ " }\n" ++
+        (show c) ++ "\n{ " ++ (show pos) ++ " }\n"
+        
+        where showvars =
+                foldl (\s i -> s ++ "vardef " ++ (show i) ++ ":" ++ 
+                        (show $ idDataType i) ++ "; ")
+                      ""
+                      is
     
 funBoolType = ETy.TyAtom ETy.ATyBool
 

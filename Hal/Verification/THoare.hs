@@ -11,4 +11,8 @@ data THoare = THoare { pre :: FormFun
                      , comm :: Comm
                      , post :: FormFun
               }
-    deriving Show
+
+instance Show THoare where
+    show th = "[ { "++ (show $ pre th) ++ " },\n"++
+                (show $ comm th) ++ ",\n"++
+                "{ "++ (show $ post th) ++ " } ]\n"
