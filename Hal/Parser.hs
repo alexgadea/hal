@@ -369,6 +369,11 @@ parseFromString = runParser program initSt ""
                              , pvars = M.empty
                              , equPState = PEqu.initPExprState PEqu.UnusedParen
                              }
+                             
+parseFromFile :: FilePath -> IO Program
+parseFromFile f = 
+    readFile f >>= return . parseFromString >>=
+    either (error . show) return
 
 parseConFromString :: String -> Either ParseError Exp
 parseConFromString = runParser intcon initSt "" 
@@ -383,6 +388,7 @@ parseBConFromString = runParser boolcon initSt ""
                              , pvars = M.empty
                              , equPState = PEqu.initPExprState PEqu.UnusedParen
                              }
+                             
 -- *** EXAMPLES
 
 prg1 = ["{Pre: True}",

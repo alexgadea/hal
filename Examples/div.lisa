@@ -1,0 +1,17 @@
+
+
+vardef x: Int;
+vardef y: Int;
+vardef q: Int;
+vardef r: Int
+{ Pre: x = X ∧ y = Y ∧ ¬ (Y = 0) ∧ ¬ (Y < 0) ∧ ¬ (X < 0)}
+
+q := 0;
+while (y < x) { True }
+    do
+        x := x - y;
+        q := q + 1;
+    od;
+r := x
+
+{ Post: X = Y * q + r }
