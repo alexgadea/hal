@@ -5,6 +5,10 @@ module Hal.Lang where
 import qualified Data.Text as T
 
 import Equ.Expr
+import qualified Equ.PreExpr as PE
+import qualified Equ.Types as ETy
+import qualified Equ.Theories.FOL as ETheoriesF
+import qualified Equ.Theories.Arith as ETheoriesA
 
 type FormFun = Expr
 
@@ -93,3 +97,46 @@ data Comm where
 data Program where
     Prog :: LIdentifier -> FormFun -> Comm -> FormFun -> Program
     deriving Show
+    
+funBoolType = ETy.TyAtom ETy.ATyBool
+
+funNatType = ETy.TyAtom ETy.ATyNat
+    
+    
+bExpToFun = Expr . bExpToFun'
+    
+bExpToFun' :: BExp -> PE.PreExpr
+bExpToFun' (BoolId i) = PE.Var $ PE.Variable (idName i) funBoolType
+bExpToFun' (BCon c) = PE.Con $ 
+                     if c
+                        then ETheoriesF.folTrue
+                        else ETheoriesF.folFalse
+bExpToFun' (BBOp op e1 e2) = 
+    case op of
+        And -> PE.BinOp ETheoriesF.folAnd (bExpToFun' e1) (bExpToFun' e2)
+        Or -> PE.BinOp ETheoriesF.folOr (bExpToFun' e1) (bExpToFun' e2)
+bExpToFun' (BUOp Not e) = 
+    PE.UnOp ETheoriesF.folNeg (bExpToFun' e)
+bExpToFun' (BRel rel e1 e2) = 
+    case rel of
+        Equal -> PE.BinOp ETheoriesF.folEqual (expToFun e1) (expToFun e2)
+        Lt -> PE.BinOp ETheoriesA.lessOper (expToFun e1) (expToFun e2)
+    
+expToFun :: Exp -> PE.PreExpr
+expToFun (IntId i) = PE.Var $ PE.Variable (idName i) funNatType
+expToFun (ICon i) = intToFun i
+    where intToFun i = if i<0
+                        then PE.UnOp ETheoriesA.natNegNum $ expToFun (ICon i)
+                        else case i of
+                              0 -> PE.Con ETheoriesA.natZero
+                              n -> PE.UnOp ETheoriesA.natSucc $ intToFun $ n-1
+expToFun (IBOp op e1 e2) =
+    case op of
+         Plus -> PE.BinOp ETheoriesA.natSum (expToFun e1) (expToFun e2)
+         Times -> PE.BinOp ETheoriesA.natProd (expToFun e1) (expToFun e2)
+         Substr -> PE.BinOp ETheoriesA.natDif (expToFun e1) (expToFun e2)
+         Div -> PE.BinOp ETheoriesA.natDiv (expToFun e1) (expToFun e2)
+         Mod -> PE.BinOp ETheoriesA.natMod (expToFun e1) (expToFun e2)
+
+
+         
