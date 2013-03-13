@@ -117,11 +117,6 @@ verConditions (Prog _ pre c postc) = cths
                             (commToList c)
                             (Just postc)
 
--- | Ejemplos:
-
-ej1 =
-    let Right p = parseFromString (unlines prg4) in
-        verConditions p
 
 
 

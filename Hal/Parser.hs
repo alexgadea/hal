@@ -443,3 +443,35 @@ prg6 = [ " vardef x: Int;",
          " od",
          "{Post: True}"
          ]
+
+         
+{- | En el caso siguiente hay un problema.
+        { Pre }
+        S1
+        if b
+            then S2
+            else S3
+       { Q }
+       
+       debe generar las siguientes wp:
+       
+       P => wp.S1.(B => wp.S2.Q) y
+       P => wp.S1.(not B => wp.S3.Q)
+         
+       pero tal como lo tenemos ahora estaría generando:
+       
+       P && B => wp.S1.(wp.S2.Q) y
+       P && not B => wp.S1.(wp.S3.Q)
+         
+-}
+         
+prg7 = [ " vardef x: Int;",
+         "{Pre: True}",
+         " x:= 0;",
+         " if (x < 0) ",
+         "    then skip ",
+         "    else abort",
+         "    fi",
+         "{Post: True}"
+       ]
+         

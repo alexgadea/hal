@@ -7,11 +7,13 @@ vardef r: Int
 { Pre: x = X ∧ y = Y ∧ ¬ (Y = 0) ∧ ¬ (Y < 0) ∧ ¬ (X < 0)}
 
 q := 0;
-while (y < x) { True }
+r := x;
+while (y < r || y = r) { x = y * q + r ∧ ¬ (r < 0)}
     do
-        x := x - y;
+        r := r - y;
         q := q + 1;
     od;
-r := x
 
-{ Post: X = Y * q + r }
+{ Post: X = Y * q + r ∧ ¬ (r <= 0) ∧ r < Y }
+
+
