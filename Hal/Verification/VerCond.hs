@@ -13,7 +13,7 @@ import qualified Equ.Theories.FOL as EquFol
 
 
 data PartTHoare = PartTHoare { partPre :: FormFun
-                             , partComm :: Maybe Comm
+                             , partComm :: Maybe GuardComm
                              }
 
 type THoares = [THoare]
@@ -41,7 +41,7 @@ commToList = commToList' []
 completeTHoare :: FormFun -> PartTHoare -> THoare
 completeTHoare postc pth = 
             THoare { pre = partPre pth
-               , comm = maybe Skip id (partComm pth)
+               , comm = maybe [NGuard Skip] id (partComm pth)
                , post = postc
             }
 
@@ -49,7 +49,7 @@ completeTHoare postc pth =
 -- | Dado un comando y una terna de hoare incompleta, se le agrega ese comando. Si ya había un comando
 --   Entonces se lo agrega en una secuencia.
 addToPartTHoare :: Comm -> PartTHoare -> PartTHoare
-addToPartTHoare c pth@PartTHoare{ partComm = pc } = pth { partComm = Just $ maybe c (flip Seq c) pc }
+addToPartTHoare c pth@PartTHoare{ partComm = pc } = pth { partComm = Just $ maybe [NGuard c] (flip (++) [NGuard c]) pc }
 
 -- | A partir de una precondición, se crea una terna de Hoare incompleta.
 newPTHoare :: FormFun -> PartTHoare
@@ -60,8 +60,7 @@ newPTHoare f = PartTHoare { partPre = f
 -- | Dada una expresión booleana b del lenguaje y una terna de hoare incompleta, si pre es
 --   la precondición de la terna, entonces se modifica la precondición quedando: pre and b
 addGuard :: BExp -> PartTHoare -> PartTHoare
-addGuard b pth@(PartTHoare f _) = pth { partPre = EquFol.and f (bExpToFun b) }
-
+addGuard b pth@PartTHoare{ partComm = pc } = pth { partComm = Just $ maybe [Guard b] (flip (++) [Guard b]) pc }
 
 {- | Función auxiliar para obtener las ternas de hoare de un programa.
      cths son las ternas de Hoare acumuladas hasta un momento dado.

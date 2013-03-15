@@ -423,6 +423,7 @@ prg4 = [ " vardef x: Int;",
          " od",
          "{Post: False}"
          ]
+
         
 prg5 = [ " vardef x: Int;",
          "{Pre: ¬ (x < 0)}",
@@ -433,6 +434,7 @@ prg5 = [ " vardef x: Int;",
          "{Post: True}"
        ]
 
+       
 prg6 = [ " vardef x: Int;",
          " vardef y: Bool",
          "{Pre: True}",
@@ -464,6 +466,8 @@ prg6 = [ " vardef x: Int;",
        P && not B => wp.S1.(wp.S3.Q)
          
 -}
+
+
          
 prg7 = [ " vardef x: Int;",
          "{Pre: True}",
@@ -474,4 +478,6 @@ prg7 = [ " vardef x: Int;",
          "    fi",
          "{Post: True}"
        ]
+         
+         
          
