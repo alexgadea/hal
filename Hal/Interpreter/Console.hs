@@ -41,12 +41,14 @@ loadPrgMessage prg = unlines [ "Carga exitosa"
                              ]
 
 prettyHal :: String
-prettyHal = unlines [ "|  |  ___  |"
-                    , "|__|  ___| |"
-                    , "|  | |   | |"
-                    , "|  | |___| |"
+prettyHal = unlines [ "     _   _   ______  _"
+                    , "    / / / / /____ / / /"
+                    , "   / /_/ / ____/ / / /"
+                    , "  / __  / / __  / / /"
+                    , " / / / / / /_/ / / /"
+                    , "/_/ /_/ /_____/ /_/"
                     ]
-                             
+
 initialMessage :: String
 initialMessage = unlines [ ""
                          , "Bienvenido al inteprete de hal."
