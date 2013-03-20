@@ -128,7 +128,7 @@ instance Show Comm where
     show (BAssig i e) = (show i) ++ ":= " ++ (show e)
     show (Do inv b c) = "while ("++ (show b) ++ ") {"++ (show inv) ++ "} " ++
                         "\n\tdo " ++ (show c) ++ "\n\tod"
-    show (Seq c1 c2) = (show c1) ++ "; " ++ (show c2)
+    show (Seq c1 c2) = (show c1) ++ ";\n" ++ (show c2)
 
 -- Un programa se separa en dos partes principales, la declaración de las
 -- variables y los comandos en sí que conforman el programa.

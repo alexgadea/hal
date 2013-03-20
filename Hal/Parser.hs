@@ -375,6 +375,9 @@ parseFromFile f =
     readFile f >>= return . parseFromString >>=
     either (error . show) return
 
+parseFromFile' :: FilePath -> IO (Either ParseError Program)
+parseFromFile' f = readFile f >>= return . parseFromString
+    
 parseConFromString :: String -> Either ParseError Exp
 parseConFromString = runParser intcon initSt "" 
     where initSt = PHalState { lvars = M.empty

@@ -3,7 +3,7 @@
     Para evaluar asumimos el programa typechekeo sin problemas.
 -}
 {-# LANGUAGE RecordWildCards #-}
-module Hal.Eval where
+module Hal.Evaluation.Eval where
 
 import Control.Applicative
 import Control.Monad.IO.Class (liftIO)
@@ -22,8 +22,19 @@ import Hal.Parser
 -- de la evaluación.
 data StateTuple = IntVar  Identifier (Maybe Int)
                 | BoolVar Identifier (Maybe Bool)
-    deriving Show
 
+instance Show StateTuple where
+    show (IntVar  i mi) = show i ++ ":" ++ prettyMaybe mi
+    show (BoolVar i mb) = show i ++ ":" ++ prettyMaybe mb
+
+takeIdentifier :: StateTuple -> Identifier
+takeIdentifier (IntVar i _) = i
+takeIdentifier (BoolVar i _) = i
+    
+prettyMaybe :: Show a => Maybe a -> String
+prettyMaybe Nothing  = "Sin valor."
+prettyMaybe (Just v) = show v
+    
 instance Eq StateTuple where
     (IntVar i _) == (IntVar i' _) = i == i'
     (BoolVar i _) == (BoolVar i' _) = i == i'
@@ -31,6 +42,20 @@ instance Eq StateTuple where
 
 -- | Estado de la evaluación.
 type State = [StateTuple]
+
+initState :: State
+initState = []
+
+takeIdentifiers :: State -> [Identifier]
+takeIdentifiers = map takeIdentifier
+
+fillState :: [Identifier] -> State
+fillState vars = map makeVar vars
+
+makeVar :: Identifier -> StateTuple
+makeVar i@(Identifier {..}) = case idDataType of
+                                IntTy  -> IntVar  i Nothing
+                                BoolTy -> BoolVar i Nothing
 
 -- | Mónada de la semántica denotacional.
 type ProgState = StateT State IO
@@ -57,8 +82,6 @@ evalRelOp :: (Eq a, Ord a) =>
              RelOp -> ProgState a -> ProgState a -> ProgState Bool
 evalRelOp Equal  = liftA2 (==)
 evalRelOp Lt     = liftA2 (<)
-evalRelOp Gt     = liftA2 (>)
-evalRelOp NEqual = liftA2 (/=)
 
 -- | Evaluador de expresiones enteras.
 evalExp :: Exp -> ProgState Int
@@ -147,11 +170,16 @@ evalComm (Do inv b c) = fix evalDo
 
 -- | Evaluador de los programas.
 evalProgram :: Program -> IO State
-evalProgram (Prog vars pre comms post) = execStateT (evalComm comms) fillState
-    where
-        fillState :: State
-        fillState = map makeVar vars
-        makeVar :: Identifier -> StateTuple
-        makeVar i@(Identifier {..}) = case idDataType of
-                                        IntTy  -> IntVar  i Nothing
-                                        BoolTy -> BoolVar i Nothing
+evalProgram (Prog vars pre comms post) = execStateT (evalComm comms) (fillState vars)
+
+evalStepComm :: Comm -> ProgState (Maybe Comm,Maybe Comm)
+evalStepComm (Seq c c') = evalStepComm c >>= \mcc' -> 
+                          case (mcc') of
+                              (Just c,Nothing) -> return (Just c, Just c')
+                              (Just c,Just c'') -> return (Just c, Just (Seq c'' c'))
+evalStepComm wc@(Do _ b c) = do
+                          vb <- evalBExp b
+                          if vb 
+                             then evalComm c >> return (Nothing,Just wc)
+                             else return (Just wc,Nothing)
+evalStepComm c = evalComm c >> return (Just c,Nothing)

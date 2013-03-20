@@ -26,11 +26,17 @@ wp :: GuardComm -> FormFun -> FormFun
 wp [NGuard Skip] f = f
 wp [NGuard Abort] _ = FOL.false
 wp [NGuard (IAssig i e)] (Expr f) = Expr $ PE.applySubst f subst
-    where subst = M.fromList [(vari,expToFun e)]
-          vari = PE.var (idName i) (TyAtom ATyInt)
+    where 
+        subst :: PE.ExprSubst
+        subst = M.fromList [(vari,expToFun e)]
+        vari :: PE.Variable
+        vari = PE.var (idName i) (TyAtom ATyInt)
 wp [NGuard (BAssig b e)] (Expr f) = Expr $ PE.applySubst f subst
-    where subst = M.fromList [(varb,bExpToFun' e)]
-          varb = PE.var (idName b) (TyAtom ATyBool)
+    where 
+        subst :: PE.ExprSubst
+        subst = M.fromList [(varb,bExpToFun' e)]
+        varb :: PE.Variable
+        varb = PE.var (idName b) (TyAtom ATyBool)
 wp (c1:gs) f = case c1 of
                     Guard b -> FOL.impl (bExpToFun b) (wp gs f)
                     NGuard c -> wp [c1] (wp gs f)
