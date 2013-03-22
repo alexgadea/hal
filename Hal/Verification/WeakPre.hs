@@ -16,6 +16,22 @@ import qualified Data.Map as M
 proofObligations :: Program -> [FormFun]
 proofObligations = (map weakp) . verConditions 
 
+-- Genera un archivo de fun con las obligaciones de prueba ingresadas 
+-- como teoremas, para que puedan ser probadas en fun-gui.
+generateFunFile :: String -> Program -> IO FilePath
+generateFunFile pname prg =
+    let pobs = proofObligations prg in
+        writeFile (pname ++ ".fun") (contentFile pobs) >>
+        return (pname ++ ".fun")
+        
+    where contentFile pobs = "module " ++ pname ++ "\n\n" ++
+                        fst (foldl (\(s,i) f -> (s ++ (generateThm f i),i+1))
+                              ("",0)
+                              pobs)
+          generateThm (Expr f) i = 
+                "let thm \n\toblig" ++ (show i) ++ " = " ++ (PE.prettyShow f) ++
+                     "\n\nbegin proof\n{- completar prueba -}\n\nend proof\n\n"
+
 
 weakp :: THoare -> FormFun
 weakp th = FOL.impl (pre th) $ wp (comm th) (post th)
@@ -41,7 +57,7 @@ wp (c1:gs) f = case c1 of
                     Guard b -> FOL.impl (bExpToFun b) (wp gs f)
                     NGuard c -> wp [c1] (wp gs f)
 
-
+                    
 
 -- | SOLO PARA PROBARRRR
 ej s =
@@ -51,3 +67,8 @@ ej s =
 ej2 = parseFromFile "Examples/div.lisa" >>= \prg ->
       putStrLn $ show $ map weakp $ verConditions prg
 
+ejFun =
+    parseFromFile "Examples/div.lisa" >>=
+    generateFunFile "AlgoDivision"
+      
+      
