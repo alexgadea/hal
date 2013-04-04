@@ -19,10 +19,12 @@ runConsole = liftIO (putStr lineMessage >> hFlush stdout) >>
                 Right ic -> case ic of
                                 Exit -> return ()
                                 LoadFile str -> loadfile str
-                                Step -> evalInterpreter ic >> 
-                                        evalInterpreter View >>
+                                Step -> evalInterpreter ic >>=
+                                        maybe (return ()) (liftIO . putStrLn) >>
                                         runConsole
-                                _ -> evalInterpreter ic >> runConsole
+                                _ -> evalInterpreter ic >>= 
+                                     maybe (return ()) (liftIO . putStrLn) >>
+                                     runConsole
 
 loadfile :: String -> InterpreterState ()
 loadfile str =  liftIO (parseFromFile' str) >>= \eprg ->

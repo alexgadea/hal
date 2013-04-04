@@ -7,12 +7,13 @@ module Hal.Evaluation.Eval where
 
 import Control.Applicative
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.State.Lazy (StateT,get,put,execStateT)
+import Control.Monad.Trans.State (StateT,get,put,execStateT)
 import Control.Monad.Fix (fix)
 import System.IO
 
 import qualified Data.List as L
 import Data.Maybe
+import Data.Either
 
 -- Imports de Hal
 import Hal.Lang
@@ -35,28 +36,75 @@ prettyMaybe :: Show a => Maybe a -> String
 prettyMaybe Nothing  = "Sin valor."
 prettyMaybe (Just v) = show v
     
+fromRight :: Either a b -> b
+fromRight (Right b) = b
+
+fromLeft :: Either a b -> a
+fromLeft (Left a) = a
+    
 instance Eq StateTuple where
     (IntVar i _) == (IntVar i' _) = i == i'
     (BoolVar i _) == (BoolVar i' _) = i == i'
     _ == _ = False
 
+type EitherBI = Either Bool Int
+
+data ExpectValue = ExpectBool | ExpectInt
+    
 -- | Estado de la evaluación.
-type State = [StateTuple]
+data State = State { vars        :: [StateTuple] 
+                   , newValueFun :: Identifier -> ExpectValue -> ProgState EitherBI
+                   }
+                   
+instance Show State where
+    show (State vars _ ) = show vars
 
 initState :: State
-initState = []
+initState = makeState [] getNewValue
+
+makeState :: [StateTuple] -> (Identifier -> ExpectValue -> ProgState EitherBI) -> State
+makeState = State 
 
 takeIdentifiers :: State -> [Identifier]
-takeIdentifiers = map takeIdentifier
+takeIdentifiers = map takeIdentifier . vars
 
-fillState :: [Identifier] -> State
-fillState vars = map makeVar vars
+fillState :: State -> [Identifier] -> State
+fillState st vars = st {vars = map makeVar vars}
 
 makeVar :: Identifier -> StateTuple
 makeVar i@(Identifier {..}) = case idDataType of
                                 IntTy  -> IntVar  i Nothing
                                 BoolTy -> BoolVar i Nothing
 
+getNewValue :: Identifier -> ExpectValue -> ProgState EitherBI
+getNewValue i ev = 
+            do
+            st <- get
+            
+            liftIO $ putStr ("Ingrese la variable "++show (idName i) ++": ")
+            liftIO $ hFlush stdout
+            
+            str <- liftIO getLine
+            
+            case ev of
+                ExpectBool -> case parseBConFromString str of
+                                   Left er -> liftIO (putStr "Valor no valido, intente de nuevo.\n") >> 
+                                              getNewValue i ev
+                                   Right v -> do st <- get
+                                                 let idSts = vars st
+                                                 v' <- evalBExp v
+                                                 let idSts' = L.map (updateValue i (Left v')) idSts
+                                                 put (st { vars =  idSts'})
+                                                 return $ Left v'
+                ExpectInt  -> case parseConFromString str of
+                                   Left er -> liftIO (putStr "Valor no valido, intente de nuevo.\n") >> 
+                                              getNewValue i ev
+                                   Right v -> do st <- get
+                                                 let idSts = vars st
+                                                 v' <- evalExp v
+                                                 let idSts' = L.map (updateValue i (Right v')) idSts
+                                                 put (st { vars =  idSts'})
+                                                 return $ Right v'
 -- | Mónada de la semántica denotacional.
 type ProgState = StateT State IO
 
@@ -87,22 +135,20 @@ evalRelOp Lt     = liftA2 (<)
 evalExp :: Exp -> ProgState Int
 evalExp (IBOp iop e e') = evalIntBOp iop (evalExp e) (evalExp e')
 evalExp (ICon i)  = return i
-evalExp (IntId i) = get >>= \st -> 
-                    maybe (error "Impossible")
-                          stGetIntValue $ L.find (==(IntVar i Nothing)) st
+evalExp ide@(IntId i) = do 
+                    st <- get
+                    let idSts = vars st
+                    maybe (error "Imposible, siempre encontramos una variable.")
+                          stGetIntValue $ L.find (==(IntVar i Nothing)) idSts
     where
-        getNewValue :: ProgState Int
-        getNewValue = liftIO (putStr ("Ingrese la variable "++show (idName i) ++": ")) >>
-                      liftIO (hFlush stdout) >> liftIO getLine >>= \str -> 
-                      case parseConFromString str of
-                          Left er -> liftIO (putStrLn "Valor no valido, intente de nuevo.") >> getNewValue
-                          Right v -> do st <- get
-                                        v' <- evalExp v
-                                        let st' = L.map (updateValue i (Right v')) st
-                                        put st'
-                                        return v'
         stGetIntValue :: StateTuple -> ProgState Int
-        stGetIntValue (IntVar _ mv) = maybe getNewValue return mv
+        stGetIntValue (IntVar _ mv) = maybe getValue return mv
+        getValue :: ProgState Int
+        getValue = do 
+                   st <- get
+                   let f = newValueFun st
+                   Right v <- f i ExpectInt
+                   return v
 
 -- | Evaluador de expresiones boleanas.
 evalBExp :: BExp -> ProgState Bool
@@ -110,22 +156,20 @@ evalBExp (BRel rop e e') = evalRelOp rop (evalExp e) (evalExp e')
 evalBExp (BUOp bop e)    = evalBoolUOp bop $ evalBExp e
 evalBExp (BBOp bop e e') = evalBoolBOp bop (evalBExp e) (evalBExp e')
 evalBExp (BCon b) = return b
-evalBExp (BoolId i) = get >>= \st -> 
-                      maybe (error "Impossible")
-                            stGetBoolValue $ L.find (==(BoolVar i Nothing)) st
+evalBExp ide@(BoolId i) = do 
+                    st <- get
+                    let idSts = vars st
+                    maybe (error "Imposible, siempre encontramos una variable.")
+                           stGetBoolValue $ L.find (==(BoolVar i Nothing)) idSts
     where
-        getNewValue :: ProgState Bool
-        getNewValue = liftIO (putStr ("Ingrese la variable "++show (idName i) ++": ")) >>
-                      liftIO (hFlush stdout) >> liftIO getLine >>= \str -> 
-                      case parseBConFromString str of
-                          Left er -> liftIO (putStrLn "Valor no valido, intente de nuevo.") >> getNewValue
-                          Right v -> do st <- get
-                                        v' <- evalBExp v
-                                        let st' = L.map (updateValue i (Left v')) st
-                                        put st'
-                                        return v'
         stGetBoolValue :: StateTuple -> ProgState Bool
-        stGetBoolValue (BoolVar _ mv) = maybe getNewValue return mv
+        stGetBoolValue (BoolVar _ mv) = maybe getValue return mv
+        getValue :: ProgState Bool
+        getValue = do 
+                   st <- get
+                   let f = newValueFun st
+                   Left v <- f i ExpectBool
+                   return v
 
 -- | Actualiza el valor de un identificador en una tupla del estado.
 updateValue :: Identifier -> Either Bool Int -> StateTuple -> StateTuple
@@ -139,8 +183,8 @@ updateValue _ _ stt = stt
 
 -- | Agrega un identificador con su valor al estado.
 addValue :: Identifier -> Either Bool Int -> State -> State
-addValue i (Left v) st  = st++[BoolVar i $ Just v]
-addValue i (Right v) st = st++[IntVar i $ Just v]
+addValue i (Left v) st  = st {vars = (vars st)++[BoolVar i $ Just v]}
+addValue i (Right v) st = st {vars = (vars st)++[IntVar i $ Just v]}
 
 -- | Evaluador de los comandos.
 evalComm :: Comm -> ProgState ()
@@ -152,13 +196,15 @@ evalComm (If b c c') = evalBExp b >>= \vb ->
 evalComm (IAssig a e) = do 
                         evalE <- evalExp e
                         st <- get 
-                        let st' = L.map (updateValue a $ Right evalE) st
-                        put st'
+                        let idSts = vars st
+                        let idSts' = L.map (updateValue a (Right evalE)) idSts
+                        put (st { vars =  idSts'})
 evalComm (BAssig a e) = do 
                         evalE <- evalBExp e
                         st <- get 
-                        let st' = L.map (updateValue a $ Left evalE) st
-                        put st'
+                        let idSts = vars st
+                        let idSts' = L.map (updateValue a (Left evalE)) idSts
+                        put (st { vars =  idSts'})
 evalComm (Seq c c') = evalComm c >> evalComm c'
 evalComm (Do inv b c) = fix evalDo
     where
@@ -170,7 +216,7 @@ evalComm (Do inv b c) = fix evalDo
 
 -- | Evaluador de los programas.
 evalProgram :: Program -> IO State
-evalProgram (Prog vars pre comms post) = execStateT (evalComm comms) (fillState vars)
+evalProgram (Prog vars pre comms post) = execStateT (evalComm comms) (fillState initState vars)
 
 evalStepComm :: Comm -> ProgState (Maybe Comm,Maybe Comm)
 evalStepComm (Seq c c') = evalStepComm c >>= \mcc' -> 

@@ -34,7 +34,10 @@ instance Show IState where
 
 initIState :: IState
 initIState = IState Nothing Nothing initState
-                     
+
+makeIState :: Maybe Comm -> Maybe Comm -> State -> IState
+makeIState = IState
+
 -- | Mónada del estado del interprete.
 type InterpreterState = StateT IState IO
 
@@ -46,12 +49,17 @@ data ICommand = Load Program
               | View 
               | Exit
     deriving Show
+    
+type IInfo = Maybe String
 
-evalInterpreter :: ICommand -> InterpreterState ()
+evalInterpreter :: ICommand -> InterpreterState IInfo
 evalInterpreter (Load (Prog vars _ c _)) = 
                 do
-                let newIState = IState Nothing (Just c) (fillState vars)
+                istate <- get
+                let pState = prgState istate
+                    newIState = IState Nothing (Just c) (fillState pState vars)
                 put newIState
+                return Nothing
 evalInterpreter Restart = do
                 istate <- get
                 let exec  = executedTracePrg istate
@@ -62,18 +70,21 @@ evalInterpreter Restart = do
                                 (_,Just c')      -> Just c'
                                 (_,_)            -> Nothing
                     vars  = takeIdentifiers $ prgState istate
-                    newIState = IState Nothing mc (fillState vars)
-                put newIState    
+                    pState = prgState istate
+                    newIState = IState Nothing mc (fillState pState vars)
+                put newIState
+                return Nothing
 evalInterpreter Step = do
                        istate <- get
                        case istate of
                             (IState _ (Just c) st) -> 
                                 liftIO (runStateT (evalStepComm c) st) >>= 
-                                \(mc,st') -> updateState istate mc st'
-                            (IState _ Nothing _) -> liftIO (putStrLn "Nada que evaluar")
+                                \(mc,st') -> updateState istate mc st' >>
+                                return Nothing
+                            (IState _ Nothing _) -> return $ Just "Nada que evaluar"
 evalInterpreter View = do
                         istate <- get
-                        liftIO (putStrLn $ "\n\n" ++ show istate ++ "\n\n")
+                        return $ Just $ "\n\n" ++ show istate ++ "\n\n"
 
 updateState :: IState -> (Maybe Comm,Maybe Comm) -> State -> InterpreterState ()
 updateState istate (mc,mc') st = 
