@@ -277,13 +277,13 @@ seqc = try $
 -- | Comandos del lenguaje LISA
 comms :: [ParserH Comm]
 comms = [ skip 
-       , abort
-       , assignInt
-       , assignBool
-       , assert
-       , ifthen
-       , while
-       ]
+        , abort
+        , assignInt
+        , assignBool
+        , assert
+        , ifthen
+        , while
+        ]
 
 comm :: ParserH Comm
 comm = try $ whites >> sepEndBy1 (choice comms) semip >>= return . foldl1 Seq
