@@ -19,7 +19,7 @@ library
   exposed-modules:        Hal.Lang
                         , Hal.Parser
                         , Hal.Symbols
-                        , Hal.Evaluation.Eval
+                        , Hal.Evaluation.EvalLang
                         , Hal.Interpreter.Console
                         , Hal.Interpreter.Interpreter
                         , Hal.Interpreter.Parser

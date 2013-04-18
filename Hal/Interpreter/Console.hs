@@ -19,8 +19,10 @@ runConsole = liftIO (putStr lineMessage >> hFlush stdout) >>
                 Right ic -> case ic of
                                 Exit -> return ()
                                 LoadFile str -> loadfile str
-                                Step -> evalInterpreter ic >>=
-                                        maybe (return ()) (liftIO . putStrLn) >>
+                                Step -> evalInterpreter ic >>= \v ->
+                                        maybe (return ()) (liftIO . putStrLn) v >>
+                                        evalInterpreter View >>= \v ->
+                                        maybe (return ()) (liftIO . putStrLn) v >>
                                         runConsole
                                 _ -> evalInterpreter ic >>= 
                                      maybe (return ()) (liftIO . putStrLn) >>

@@ -6,7 +6,7 @@ import Control.Monad.Trans.State.Lazy (StateT,get,put,runStateT)
 
 -- Imports de Hal
 import Hal.Lang
-import Hal.Evaluation.Eval
+import Hal.Evaluation.EvalLang
 
 import Hal.Parser
 

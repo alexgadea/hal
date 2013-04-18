@@ -129,7 +129,7 @@ instance Show Comm where
     show (Do inv b c) = "while ("++ (show b) ++ ") {"++ (show inv) ++ "} " ++
                         "\n\tdo " ++ (show c) ++ "\n\tod"
     show (Seq c1 c2) = (show c1) ++ ";\n" ++ (show c2)
-
+    
 -- Un programa se separa en dos partes principales, la declaración de las
 -- variables y los comandos en sí que conforman el programa.
 data Program where
@@ -185,6 +185,3 @@ expToFun (IBOp op e1 e2) =
          Substr -> PE.BinOp ETheoriesA.natDif (expToFun e1) (expToFun e2)
          Div -> PE.BinOp ETheoriesA.natDiv (expToFun e1) (expToFun e2)
          Mod -> PE.BinOp ETheoriesA.natMod (expToFun e1) (expToFun e2)
-
-
-         
