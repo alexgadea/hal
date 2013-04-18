@@ -21,18 +21,25 @@ proofObligations = (map weakp) . verConditions
 generateFunFile :: String -> Program -> IO FilePath
 generateFunFile pname prg =
     let pobs = proofObligations prg in
-        writeFile (pname ++ ".fun") (contentFile pobs) >>
+        writeFile (pname ++ ".fun") (proofOblgToTheoremStr pname pobs) >>
         return (pname ++ ".fun")
-        
-    where contentFile pobs = "module " ++ pname ++ "\n\n" ++
-                        fst (foldl (\(s,i) f -> (s ++ (generateThm f i),i+1))
-                              ("",0)
-                              pobs)
-          generateThm (Expr f) i = 
+
+generateFunFileString :: String -> Program -> IO String
+generateFunFileString pname prg =
+    let pobs = proofObligations prg in
+        return $ proofOblgToTheoremStr pname pobs
+
+proofOblgToTheoremStr :: String -> [FormFun] -> String
+proofOblgToTheoremStr pname pobs =
+    "module " ++ pname ++ "\n\n" ++
+                fst (foldl (\(s,i) f -> (s ++ (generateThm f i),i+1))
+                        ("",0)
+                        pobs)
+                        
+    where generateThm (Expr f) i = 
                 "let thm \n\toblig" ++ (show i) ++ " = " ++ (PE.prettyShow f) ++
                      "\n\nbegin proof\n{- completar prueba -}\n\nend proof\n\n"
-
-
+                     
 weakp :: THoare -> FormFun
 weakp th = FOL.impl (pre th) $ wp (comm th) (post th)
 
@@ -67,8 +74,8 @@ ej s =
 ej2 = parseFromFile "Examples/div.lisa" >>= \prg ->
       putStrLn $ show $ map weakp $ verConditions prg
 
-ejFun =
-    parseFromFile "Examples/div.lisa" >>=
-    generateFunFile "AlgoDivision"
+ejFun sp name =
+    let Right p = parseFromString (unlines sp) in
+        generateFunFile name p
       
       
