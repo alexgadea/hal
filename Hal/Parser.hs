@@ -314,30 +314,41 @@ post = try $
        sym "}" >>
        return e
        
--- | Declaraciones de variables
-vardef :: ParserH ()
-vardef = try $
+var :: String -> IdType -> ParserH ()
+var prefix idtype = try $
          whites >>
-         keyword "vardef" >>
+         keyword prefix >>
          ident >>= \s ->
          sym ":" >>
          ptype >>= \ty ->
          return Identifier { idName = pack s
                            , idDataType = ty
-                           , idType = IsVar
+                           , idType = idtype
          }
          >>= \ids ->
          updState s ids >>
          return ()
     where updState s ids = updateParserState (\st -> st { stateUser = 
                                     (stateUser st) { pvars = M.insert s ids (pvars $ stateUser st)} } )
+       
+varinput :: ParserH ()
+varinput = var "varinput" IsInput
+
+vardef :: ParserH ()
+vardef = var "vardef" IsVar
 
 seqvardef :: ParserH ()
 seqvardef = try $
             vardefs >>
             sym ";" >>
             vardefs
-                                    
+                   
+varinputs :: ParserH ()
+varinputs = try $
+          whites >> 
+          sepEndBy varinput semip >>
+          return ()
+
 vardefs :: ParserH ()
 vardefs = try $
           whites >> 
@@ -354,7 +365,8 @@ ptype = (keyword "Bool" >>
           
 -- | Un programa consta de declaraciones de variables, una precondición, un comando y una postcondición 
 program :: ParserH Program
-program = vardefs >>
+program = varinputs >>
+          vardefs >>
           prec >>= \pre ->
           comm >>= \c ->
           post >>= \post ->

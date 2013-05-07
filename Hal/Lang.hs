@@ -26,7 +26,7 @@ instance Show Type where
 
 -- Lo usamos para determinar si un identificador es una variables o una
 -- constante.
-data IdType = IsVar | IsCon
+data IdType = IsVar | IsInput
     deriving (Eq,Show)
 
 -- Identificador de variable y constante.
