@@ -2,7 +2,7 @@
     
     Para evaluar asumimos el programa typechekeo sin problemas.
 -}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, FlexibleInstances, MultiParamTypeClasses #-}
 module Hal.Evaluation.EvalLang where
 
 import Control.Applicative
@@ -11,13 +11,17 @@ import Control.Monad.Trans.State (StateT,get,put,execStateT)
 import Control.Monad.Fix (fix)
 import System.IO
 
-import qualified Data.List as L
+import Data.IORef
 import Data.Maybe
 import Data.Either
+import Data.Reference
+import qualified Data.List as L
 
 -- Imports de Hal
 import Hal.Lang
 import Hal.Parser
+
+
 
 -- | Elemento de un estado. Representa el valor de una variable en un momento
 -- de la evaluación.
@@ -58,6 +62,11 @@ data State = State { vars        :: [StateTuple]
                    
 instance Show State where
     show (State vars _ ) = show vars
+
+instance Reference IORef (StateT State IO) where
+    newRef = liftIO . newRef
+    readRef = liftIO . readRef
+    writeRef r = liftIO . writeRef r
 
 initState :: State
 initState = makeState [] getNewValue

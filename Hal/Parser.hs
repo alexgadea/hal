@@ -144,7 +144,7 @@ pvar ty = try $ ident >>= \s ->
     where checkType s ty i = 
                 if ty==idDataType i
                     then return i
-                    else parserFail $ "Variable " ++ s ++ " no tiene tipo" ++ show ty
+                    else parserFail $ "Variable " ++ s ++ " no tiene tipo " ++ show ty
 
 pintvar :: ParserH Identifier
 pintvar = pvar IntTy
@@ -226,7 +226,7 @@ assignBool :: ParserH Comm
 assignBool = try $ 
              pboolvar >>= \acc ->
              oper ":=" >> 
-             boolexp >>= return . BAssig acc  
+             boolexp >>= return . BAssig acc
 
 -- |Condicional.      
 ifthen :: ParserH Comm
